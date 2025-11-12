@@ -124,11 +124,47 @@ def internet_search(query: str) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # BEGIN SOLUTION
-REVIEWER_INSTRUCTIONS = """
+REVIEWER_INSTRUCTIONS = """"You are an expert travel reviewer and fact-checker. Your goal is to validate, correct, and improve the itinerary plan provided to you.
+
+You will be given a draft itinerary. You MUST use the `internet_search` tool to perform the following actions:
+1.  Check Feasibility: Verify all locations, attractions, and restaurants. Check their real-world opening hours, ticket prices, and availability.
+2.  Validate Logistics: Check travel times between locations (e.g., "travel time from Eiffel Tower to Louvre") and ensure the schedule is realistic and not too rushed.
+3.  Check for Conflicts: Identify any unrealistic or conflicting activities (e.g., booking an activity on a day it is closed, underestimating travel time).
+4.  Budget Check: Verify if estimated costs are realistic based on search results for ticket prices and dining.
+
+Output Format:
+Your final output MUST be a single, complete response containing three distinct sections:
+
+1.  Validation Summary: A brief, high-level summary of your findings (e.g., "The plan was generally good, but I made key adjustments for feasibility.").
+2.  Validated Itinerary: The full, corrected, day-by-day itinerary. This should incorporate all your fixes. Use clear Markdown formatting.
+3.  Delta List: A bulleted list of all concrete changes you made, with a clear reason for each change, citing your search findings.
+
+Example for Delta List:
+* Moved Louvre Visit: Shifted from Tuesday to Wednesday. Reason: Search confirmed the Louvre is closed on Tuesdays.
+* Adjusted Travel Time: Increased time between Sagrada Familia and Park Güell to 1 hour. Reason: Search indicates travel time is ~45 minutes plus walking.
+* Updated Cost: Changed museum ticket cost from $15 to $20. Reason: Official website search confirms the current adult ticket price is $20.
+
+Input: (The draft itinerary from the Planner Agent will be provided as input)
 
 """
 
-PLANNER_INSTRUCTIONS = """
+PLANNER_INSTRUCTIONS = """You are an expert travel planner. Your goal is to create a detailed, day-by-day itinerary based on a user's prompt.
+
+CRITICAL CONSTRAINT: You MUST NOT use any tools. You have NO internet access. You must generate the entire plan based *only* on your internal knowledge. Do not invent unrealistic details; use your general knowledge to create a plausible, creative plan.
+
+Task:
+1.  Receive a user's vague travel prompt (e.g., duration, budget, interests, pacing).
+2.  Expand this prompt into a detailed, day-by-day itinerary.
+3.  For each day, include:
+    * Activities: A list of activities with approximate times and locations.
+    * Logistics: Suggestions for travel between locations or cities.
+    * Costs: Approximate estimated costs for major activities or meals to align with the budget.
+    * City Clusters: Group activities by neighborhood or area to minimize travel time.
+4.  Strictly adhere to all user constraints (budget, interests, dates, pacing).
+5.  Present the plan in a clear, structured, and easy-to-read format. Use Markdown headings for each day (e.g., "Day 1: Arrival and Exploration").
+
+Input: (The user's vague prompt will be provided as input)
+Output: (Your generated day-by-day itinerary as a single text block)
 
 """
 
@@ -136,7 +172,7 @@ reviewer_agent = Agent(
     name="Reviewer Agent",
     model="openai.gpt-4o",
     instructions=REVIEWER_INSTRUCTIONS.strip(),
-    tools=[]
+    tools=[internet_search]
 )
 
 planner_agent = Agent(
@@ -242,18 +278,18 @@ if user_input:
             """Append an event and re-render the sidebar log."""
             tool_events.append(event)
             with tool_panel:
-                st.markdown("**Recent tool calls**")
+                st.markdown("Recent tool calls")
                 for ev in tool_events[-60:]:  # last N entries
                     t = ev.get("tool", "unknown")
                     et = ev.get("type", "event")
                     if et == "call":
-                        st.write(f"• **{t}** called with `{ev.get('args')}`")
+                        st.write(f"• {t} called with `{ev.get('args')}`")
                     elif et == "result":
-                        st.write(f"• **{t}** result preview:\n\n> {ev.get('preview')}")
+                        st.write(f"• {t} result preview:\n\n> {ev.get('preview')}")
                     elif et == "error":
-                        st.error(f"• **{t}** error: {ev.get('error')}")
+                        st.error(f"• {t} error: {ev.get('error')}")
                     elif et == "end":
-                        st.write(f"• **{t}** finished")
+                        st.write(f"• {t} finished")
 
         # Install the logger so tools can report to the sidebar
         set_tool_logger(ui_tool_logger)
@@ -281,7 +317,7 @@ if user_input:
             progress.progress(100)
 
             # Final render: show only the validated result, with the raw plan expandable
-            st.info("🤖 **Reviewer Agent** (validated)")
+            st.info("🤖 Reviewer Agent (validated)")
             st.markdown(review_text)
             with st.expander("See raw plan from Planner Agent"):
                 st.markdown(plan_text)
